@@ -203,8 +203,9 @@ export class Spinner {
 
   private render(): void {
     const secs = Math.floor((this.now() - this.startedAt) / 1000);
+    const elapsed = secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${secs % 60}s`;
     const frame = SPINNER_FRAMES[this.frame++ % SPINNER_FRAMES.length];
-    this.stream.write(`\r\x1b[K${frame} ${this.text} ${secs}s`);
+    this.stream.write(`\r\x1b[K${frame} ${this.text} ${elapsed}`);
   }
 }
 

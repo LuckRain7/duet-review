@@ -193,6 +193,17 @@ describe('Spinner', () => {
     expect(all).toContain('2s');
   });
 
+  it('超过 1 分钟显示为 Xm Ys', () => {
+    const { chunks, stream } = makeFakeStream(true);
+    const spinner = new Spinner(stream);
+    spinner.start('初始评审中…');
+    vi.advanceTimersByTime(69_000);
+    spinner.stop();
+    const all = chunks.join('');
+    expect(all).toContain('1m 9s');
+    expect(all).not.toContain('69s');
+  });
+
   it('interrupt 清掉动画行、打印日志后动画继续', () => {
     const { chunks, stream } = makeFakeStream(true);
     const spinner = new Spinner(stream);
