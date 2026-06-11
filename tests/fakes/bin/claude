@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+// 假 claude：按 DUET_FAKE_DIR 场景回放输出，模拟 `claude -p --output-format json` 的结果 JSON
+const fs = require('node:fs');
+const path = require('node:path');
+
+// 预检调用（claude --version）直接应答，不消耗场景计数
+if (process.argv.includes('--version')) { console.log('fake-claude 0.0.0'); process.exit(0); }
+
+const dir = process.env.DUET_FAKE_DIR;
+if (!dir) { console.error('DUET_FAKE_DIR 未设置'); process.exit(99); }
+
+let stdin = '';
+try { stdin = fs.readFileSync(0, 'utf8'); } catch {}
+
+const countFile = path.join(dir, 'claude-count');
+const n = fs.existsSync(countFile) ? Number(fs.readFileSync(countFile, 'utf8')) + 1 : 1;
+fs.writeFileSync(countFile, String(n));
+
+fs.appendFileSync(
+  path.join(dir, 'claude-calls.jsonl'),
+  JSON.stringify({ n, argv: process.argv.slice(2), stdin }) + '\n',
+);
+
+const replyFile = path.join(dir, `claude-reply-${n}.txt`);
+if (!fs.existsSync(replyFile)) { console.error(`场景缺少 ${replyFile}`); process.exit(98); }
+const message = fs.readFileSync(replyFile, 'utf8');
+
+console.log(JSON.stringify({
+  type: 'result',
+  subtype: 'success',
+  is_error: false,
+  result: message,
+  session_id: 'fake-claude-session-1',
+}));
