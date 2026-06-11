@@ -7,6 +7,8 @@ export interface CodexOptions {
   reviewSchemaFile: string;
   discussionSchemaFile: string;
   env?: NodeJS.ProcessEnv;
+  /** 实时输出回调：codex 每产生一个事件（思考/命令/消息）就回调一次 */
+  onActivity?: (text: string) => void;
 }
 
 const SESSION_KEYS = new Set(['thread_id', 'session_id', 'conversation_id']);
@@ -40,6 +42,24 @@ export function parseCodexJsonl(jsonl: string): { sessionId: string | null; last
   return { sessionId, lastMessage };
 }
 
+/** 把 codex --json 的单个事件格式化为实时展示文本；不需要展示的事件返回 null */
+export function formatCodexEvent(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('{')) return null;
+  let evt: any;
+  try { evt = JSON.parse(trimmed); } catch { return null; }
+  const item = evt?.item;
+  if (item?.type === 'command_execution' && evt.type === 'item.started' && typeof item.command === 'string') {
+    return `$ ${item.command}`;
+  }
+  if (evt.type === 'item.completed') {
+    if (item?.type === 'reasoning' && typeof item.text === 'string' && item.text) return item.text;
+    if (item?.type === 'agent_message' && typeof item.text === 'string') return item.text;
+  }
+  if (evt?.type === 'agent_message' && typeof evt.message === 'string') return evt.message;
+  return null;
+}
+
 export class CodexReviewer implements Reviewer {
   readonly name = 'codex' as const;
   private sessionId: string | null = null;
@@ -64,11 +84,18 @@ export class CodexReviewer implements Reviewer {
   }
 
   private async exec(args: string[], prompt: string): Promise<string> {
+    const { onActivity } = this.opts;
     const res = await runCli('codex', args, {
       cwd: this.opts.cwd,
       stdin: prompt,
       timeoutMs: this.opts.timeoutMs,
       env: this.opts.env,
+      onStdoutLine: onActivity
+        ? (line) => {
+            const text = formatCodexEvent(line);
+            if (text !== null) onActivity(text);
+          }
+        : undefined,
     });
     const cmdStr = ['codex', ...args].join(' ');
     if (res.timedOut) throw new Error(`codex 调用超时（${cmdStr}）`);

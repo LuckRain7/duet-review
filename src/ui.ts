@@ -2,16 +2,21 @@ import type { FindingState, InternalStance, TrackedFinding } from './types.js';
 
 /** 终端展示层：CJK 宽度对齐、双栏面板、立场矩阵与 loading 动画 */
 
-/** East Asian Wide/Fullwidth 的常用区段；够覆盖中文、全角标点与日文假名 */
+/** East Asian Wide/Fullwidth 的常用区段；够覆盖中文、全角标点、日文假名与常见 emoji */
 function isWideChar(codePoint: number): boolean {
   return (
     (codePoint >= 0x1100 && codePoint <= 0x115f) || // Hangul Jamo
+    // 杂项符号区段里 EastAsianWidth=Wide 的 emoji（✅❌❗ 等）；✓✗⚠ 等 Neutral 符号保持宽 1
+    codePoint === 0x2705 || (codePoint >= 0x2753 && codePoint <= 0x2755) || codePoint === 0x2757 ||
+    codePoint === 0x274c || codePoint === 0x274e || (codePoint >= 0x2795 && codePoint <= 0x2797) ||
+    (codePoint >= 0x2b1b && codePoint <= 0x2b1c) || codePoint === 0x2b50 || codePoint === 0x2b55 ||
     (codePoint >= 0x2e80 && codePoint <= 0xa4cf) || // CJK 部首/汉字/假名等
     (codePoint >= 0xac00 && codePoint <= 0xd7a3) || // Hangul 音节
     (codePoint >= 0xf900 && codePoint <= 0xfaff) || // CJK 兼容汉字
     (codePoint >= 0xfe30 && codePoint <= 0xfe4f) || // CJK 兼容形式
     (codePoint >= 0xff00 && codePoint <= 0xff60) || // 全角 ASCII/标点
     (codePoint >= 0xffe0 && codePoint <= 0xffe6) ||
+    (codePoint >= 0x1f300 && codePoint <= 0x1faff) || // emoji（🔴🟡🚀 等）
     (codePoint >= 0x20000 && codePoint <= 0x3fffd) // CJK 扩展
   );
 }
@@ -27,7 +32,7 @@ export function padDisplay(text: string, width: number): string {
   return pad > 0 ? text + ' '.repeat(pad) : text;
 }
 
-/** 单条 finding 渲染为三行：id+severity、file:line、title */
+/** 单条 finding 完整渲染：id+severity、file:line、title、description、suggestion，超宽折行不截字 */
 function findingLines(t: TrackedFinding, colWidth: number): string[] {
   const { finding } = t;
   const loc = finding.line === null ? finding.file : `${finding.file}:${finding.line}`;
@@ -35,7 +40,11 @@ function findingLines(t: TrackedFinding, colWidth: number): string[] {
     `${finding.id} [${finding.severity}]`,
     loc,
     finding.title,
-  ].map((l) => truncateDisplay(l, colWidth));
+    '',
+    finding.description,
+    '',
+    `建议: ${finding.suggestion}`,
+  ].flatMap((l) => wrapDisplay(l, colWidth));
 }
 
 function columnLines(side: TrackedFinding[], colWidth: number): string[] {
@@ -199,15 +208,27 @@ export class Spinner {
   }
 }
 
-export function truncateDisplay(text: string, width: number): string {
-  if (displayWidth(text) <= width) return text;
-  let out = '';
-  let used = 0;
-  for (const ch of text) {
-    const w = isWideChar(ch.codePointAt(0)!) ? 2 : 1;
-    if (used + w > width - 1) break; // 预留省略号 1 列
-    out += ch;
-    used += w;
+/** 按显示宽度折行（CJK 字符宽 2），保留原有换行，不丢弃任何字符；tab 展开为空格避免边框错位 */
+export function wrapDisplay(text: string, width: number): string[] {
+  const out: string[] = [];
+  for (const raw of text.replace(/\t/g, '    ').split('\n')) {
+    if (displayWidth(raw) <= width) {
+      out.push(raw);
+      continue;
+    }
+    let line = '';
+    let used = 0;
+    for (const ch of raw) {
+      const w = isWideChar(ch.codePointAt(0)!) ? 2 : 1;
+      if (used + w > width) {
+        out.push(line);
+        line = '';
+        used = 0;
+      }
+      line += ch;
+      used += w;
+    }
+    out.push(line);
   }
-  return out + '…';
+  return out;
 }

@@ -28,4 +28,32 @@ describe('runCli', () => {
   it('命令不存在时 reject', async () => {
     await expect(runCli('definitely-not-a-cmd-xyz', [])).rejects.toThrow();
   });
+
+  it('onStdoutLine 按完整行实时回调，含无换行结尾的末行', async () => {
+    const lines: string[] = [];
+    const res = await runCli(
+      'node',
+      ['-e', 'process.stdout.write("a\\nb\\nc")'],
+      { onStdoutLine: (l) => lines.push(l) },
+    );
+    expect(lines).toEqual(['a', 'b', 'c']);
+    expect(res.stdout).toBe('a\nb\nc'); // 全量 stdout 不受影响
+  });
+
+  it('多字节 UTF-8 字符被 chunk 边界切开时不产生乱码', async () => {
+    const lines: string[] = [];
+    // 把「中」(e4 b8 ad) 拆成两次 write，模拟字符横跨 chunk 边界
+    const res = await runCli(
+      'node',
+      ['-e', `
+        const buf = Buffer.from('前中后');
+        process.stdout.write(buf.subarray(0, 4));
+        setTimeout(() => { process.stdout.write(buf.subarray(4)); process.stdout.write('\\n尾'); }, 50);
+      `],
+      { onStdoutLine: (l) => lines.push(l) },
+    );
+    expect(res.stdout).toBe('前中后\n尾');
+    expect(lines).toEqual(['前中后', '尾']);
+    expect(res.stdout).not.toContain('�');
+  });
 });

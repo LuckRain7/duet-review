@@ -60,8 +60,16 @@ export async function main(options: MainOptions): Promise<number> {
     writeFileSync(reviewSchemaFile, JSON.stringify(codexReviewSchema, null, 2));
     writeFileSync(discussionSchemaFile, JSON.stringify(codexDiscussionSchema, null, 2));
 
-    const codex = new CodexReviewer({ cwd, timeoutMs: options.timeoutMs, reviewSchemaFile, discussionSchemaFile, env });
-    const claude = new ClaudeReviewer({ cwd, timeoutMs: options.timeoutMs, env });
+    // 实时透出双方代理的过程输出（思考/命令/工具调用/消息），TTY 下置灰与主日志区分
+    const dim = !options.log && process.stdout.isTTY ? (s: string) => `\x1b[2m${s}\x1b[0m` : (s: string) => s;
+    const onActivity = (name: ReviewerName) => (text: string) => {
+      for (const line of text.split('\n')) log(dim(`  [${name}] ${line}`));
+    };
+    const codex = new CodexReviewer({
+      cwd, timeoutMs: options.timeoutMs, reviewSchemaFile, discussionSchemaFile, env,
+      onActivity: onActivity('codex'),
+    });
+    const claude = new ClaudeReviewer({ cwd, timeoutMs: options.timeoutMs, env, onActivity: onActivity('claude') });
 
     const reviewing = new Set<ReviewerName>(['codex', 'claude']);
     const reviewStatus = () =>
@@ -86,7 +94,7 @@ export async function main(options: MainOptions): Promise<number> {
       return 0;
     }
     log('');
-    log(renderFindingsPanel(tracked));
+    log(renderFindingsPanel(tracked, process.stdout.isTTY ? (process.stdout.columns ?? 80) : 100));
 
     const { rounds } = await runDiscussion({
       codex, claude, tracked,

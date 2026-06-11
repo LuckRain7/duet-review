@@ -25,6 +25,7 @@ const replyFile = path.join(dir, `codex-reply-${n}.txt`);
 if (!fs.existsSync(replyFile)) { console.error(`场景缺少 ${replyFile}`); process.exit(98); }
 const message = fs.readFileSync(replyFile, 'utf8');
 
-// 模拟 codex --json 的 JSONL：会话事件 + 最终 agent 消息
+// 模拟 codex --json 的 JSONL：会话事件 + 过程事件 + 最终 agent 消息
 console.log(JSON.stringify({ type: 'thread.started', thread_id: 'fake-codex-session-1' }));
+console.log(JSON.stringify({ type: 'item.started', item: { type: 'command_execution', command: 'rg TODO' } }));
 console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: message } }));

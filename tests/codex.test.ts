@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CodexReviewer, parseCodexJsonl } from '../src/reviewers/codex.js';
+import { CodexReviewer, formatCodexEvent, parseCodexJsonl } from '../src/reviewers/codex.js';
 import { makeFakeScenario } from './helpers/fakeCli.js';
 
 describe('parseCodexJsonl', () => {
@@ -23,14 +23,32 @@ describe('parseCodexJsonl', () => {
   });
 });
 
+describe('formatCodexEvent', () => {
+  it('命令开始事件展示完整命令', () => {
+    const line = JSON.stringify({ type: 'item.started', item: { type: 'command_execution', command: 'rg TODO src/' } });
+    expect(formatCodexEvent(line)).toBe('$ rg TODO src/');
+  });
+
+  it('思考与 agent 消息完成事件透出全文', () => {
+    expect(formatCodexEvent(JSON.stringify({ type: 'item.completed', item: { type: 'reasoning', text: '思考过程' } }))).toBe('思考过程');
+    expect(formatCodexEvent(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: '结论' } }))).toBe('结论');
+  });
+
+  it('无关事件与非 JSON 行返回 null', () => {
+    expect(formatCodexEvent(JSON.stringify({ type: 'thread.started', thread_id: 's' }))).toBeNull();
+    expect(formatCodexEvent('垃圾行')).toBeNull();
+  });
+});
+
 describe('CodexReviewer', () => {
-  function make(scenario = makeFakeScenario()) {
+  function make(scenario = makeFakeScenario(), onActivity?: (text: string) => void) {
     const reviewer = new CodexReviewer({
       cwd: process.cwd(),
       timeoutMs: 10_000,
       reviewSchemaFile: '/tmp/review-schema.json',
       discussionSchemaFile: '/tmp/discussion-schema.json',
       env: scenario.env,
+      onActivity,
     });
     return { scenario, reviewer };
   }
@@ -60,6 +78,15 @@ describe('CodexReviewer', () => {
       '-c', 'sandbox_mode="read-only"',
       '--output-schema', '/tmp/discussion-schema.json', '-',
     ]);
+  });
+
+  it('onActivity 实时收到命令与最终消息', async () => {
+    const seen: string[] = [];
+    const { scenario, reviewer } = make(makeFakeScenario(), (t) => seen.push(t));
+    scenario.setReply('codex', 1, '评审结论');
+    await reviewer.start('请评审');
+    expect(seen).toContain('$ rg TODO');
+    expect(seen).toContain('评审结论');
   });
 
   it('未 start 直接 reply 抛错', async () => {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initTracked } from '../src/orchestrator.js';
 import type { Finding } from '../src/types.js';
-import { Spinner, displayWidth, padDisplay, renderFileTree, renderFindingsPanel, renderStanceTable, truncateDisplay } from '../src/ui.js';
+import { Spinner, displayWidth, padDisplay, renderFileTree, renderFindingsPanel, renderStanceTable, wrapDisplay } from '../src/ui.js';
 
 function makeFakeStream(isTTY: boolean) {
   const chunks: string[] = [];
@@ -28,6 +28,12 @@ describe('displayWidth', () => {
 
   it('全角标点宽 2', () => {
     expect(displayWidth('（）')).toBe(4);
+  });
+
+  it('Wide emoji 宽 2，Neutral 符号（✓✗）保持宽 1', () => {
+    expect(displayWidth('✅')).toBe(2);
+    expect(displayWidth('🔴')).toBe(2);
+    expect(displayWidth('✓✗')).toBe(2);
   });
 });
 
@@ -80,6 +86,23 @@ describe('renderFindingsPanel', () => {
   it('一侧为空时显示（无）', () => {
     const onlyCodex = initTracked([finding('1')], []);
     expect(renderFindingsPanel(onlyCodex)).toContain('（无）');
+  });
+
+  it('展示完整 description 与 suggestion', () => {
+    const panel = renderFindingsPanel(initTracked(
+      [finding('1', { description: '详细描述全文', suggestion: '修复建议全文' })], [],
+    ));
+    expect(panel).toContain('详细描述全文');
+    expect(panel).toContain('修复建议全文');
+  });
+
+  it('超宽内容折行而非截断，不出现省略号', () => {
+    const longTitle = '这是一个非常长的标题需要折成多行展示而不是被截断丢失信息'.repeat(2);
+    const panel = renderFindingsPanel(initTracked([finding('1', { title: longTitle })], []));
+    expect(panel).not.toContain('…');
+    // 去掉边框与空白后还原出完整标题
+    const merged = panel.split('\n').map((l) => l.replace(/[│┌┬┐└┴┘─ ]/g, '')).join('');
+    expect(merged).toContain(longTitle);
   });
 });
 
@@ -240,13 +263,24 @@ describe('renderFileTree', () => {
   });
 });
 
-describe('truncateDisplay', () => {
-  it('显示宽度内原样返回', () => {
-    expect(truncateDisplay('abc', 5)).toBe('abc');
+describe('wrapDisplay', () => {
+  it('显示宽度内单行原样返回', () => {
+    expect(wrapDisplay('abc', 5)).toEqual(['abc']);
   });
 
-  it('超宽按显示宽度截断并加省略号', () => {
-    expect(truncateDisplay('中文标题很长', 9)).toBe('中文标题…');
-    expect(displayWidth(truncateDisplay('中文标题很长', 9))).toBeLessThanOrEqual(9);
+  it('超宽按显示宽度折行，不丢字符', () => {
+    expect(wrapDisplay('中文标题很长', 8)).toEqual(['中文标题', '很长']);
+    for (const line of wrapDisplay('中文 mixed 内容很长很长', 8)) {
+      expect(displayWidth(line)).toBeLessThanOrEqual(8);
+    }
+    expect(wrapDisplay('中文 mixed 内容很长很长', 8).join('')).toBe('中文 mixed 内容很长很长');
+  });
+
+  it('保留原有换行与空行', () => {
+    expect(wrapDisplay('a\n\nb', 10)).toEqual(['a', '', 'b']);
+  });
+
+  it('tab 展开为空格，宽度可计算', () => {
+    expect(wrapDisplay('a\tb', 10)).toEqual(['a    b']);
   });
 });

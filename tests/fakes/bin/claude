@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 假 claude：按 DUET_FAKE_DIR 场景回放输出，模拟 `claude -p --output-format json` 的结果 JSON
+// 假 claude：按 DUET_FAKE_DIR 场景回放输出，模拟 `claude -p --output-format stream-json --verbose` 的 JSONL 事件流
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -25,6 +25,13 @@ const replyFile = path.join(dir, `claude-reply-${n}.txt`);
 if (!fs.existsSync(replyFile)) { console.error(`场景缺少 ${replyFile}`); process.exit(98); }
 const message = fs.readFileSync(replyFile, 'utf8');
 
+// 模拟 stream-json 的 JSONL：init 事件 + assistant 消息事件 + 最终 result 事件
+console.log(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'fake-claude-session-1' }));
+console.log(JSON.stringify({
+  type: 'assistant',
+  message: { content: [{ type: 'text', text: message }] },
+  session_id: 'fake-claude-session-1',
+}));
 console.log(JSON.stringify({
   type: 'result',
   subtype: 'success',
