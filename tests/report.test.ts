@@ -31,7 +31,7 @@ describe('Archive', () => {
 describe('renderReport', () => {
   it('按状态分组渲染共识/分歧/撤销', () => {
     const md = renderReport({
-      source: 'staged',
+      label: 'main...HEAD',
       rounds: 2,
       tracked: [tracked('cx-1', 'consensus'), tracked('cx-2', 'disputed'), tracked('cx-3', 'dropped')],
       applySummary: '修改了 src/a.ts',
@@ -44,5 +44,6 @@ describe('renderReport', () => {
     expect(md).toContain('撤销');
     expect(md).toContain('cx-3');
     expect(md).toContain('修改了 src/a.ts');
+    expect(md).toContain('审查对象: main...HEAD diff');
   });
 });

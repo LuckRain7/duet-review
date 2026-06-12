@@ -114,5 +114,9 @@ describe('collectDiff', () => {
     repo.write('a.txt', 'line1\nline2\n');
     const res = await collectDiff(repo.dir);
     expect(res.label).toBe('unstaged');
+
+    repo.git('add', 'a.txt');
+    const staged = await collectDiff(repo.dir);
+    expect(staged.label).toBe('staged');
   });
 });

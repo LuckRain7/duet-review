@@ -17,7 +17,7 @@ export class Archive {
 }
 
 export interface ReportInput {
-  source: 'staged' | 'unstaged';
+  label: string;
   rounds: number;
   tracked: TrackedFinding[];
   applySummary: string | null;
@@ -43,7 +43,7 @@ export function renderReport(input: ReportInput): string {
   return [
     '# duet-review 报告',
     '',
-    `- 审查对象: ${input.source} diff`,
+    `- 审查对象: ${input.label} diff`,
     `- 讨论轮数: ${input.rounds}`,
     `- 结果: 共识 ${by('consensus').length} / 分歧 ${by('disputed').length} / 撤销 ${by('dropped').length}`,
     '',

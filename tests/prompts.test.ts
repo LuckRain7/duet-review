@@ -31,6 +31,11 @@ describe('buildInitialReviewPrompt', () => {
     expect(p).toContain('staged');
     for (const key of ['findings', 'severity', 'suggestion']) expect(p).toContain(key);
   });
+
+  it('range 模式下来源说明为具体范围', () => {
+    const p = buildInitialReviewPrompt('diff --git a/a.txt b/a.txt', 'origin/main...HEAD');
+    expect(p).toContain('origin/main...HEAD 的 git diff');
+  });
 });
 
 describe('buildDiscussionPrompt', () => {

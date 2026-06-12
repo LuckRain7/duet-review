@@ -29,8 +29,8 @@ const RESPONSE_JSON_SPEC = `输出必须是一个 JSON 对象，且只输出 JSO
 }
 立场含义：agree=认可当前建议；disagree=反对并给出理由；modify=建议修订（必须给 revisedSuggestion）；withdraw=撤回自己提出的 finding（只能用于自己提出的条目）。`;
 
-export function buildInitialReviewPrompt(patch: string, source: 'staged' | 'unstaged'): string {
-  return `你是一名严格的代码评审者。请审查下面这份 ${source} 的 git diff。
+export function buildInitialReviewPrompt(patch: string, label: string): string {
+  return `你是一名严格的代码评审者。请审查下面这份 ${label} 的 git diff。
 你可以读取仓库中的相关文件来理解上下文，但不要修改任何文件。
 只报告 diff 中改动引入或直接相关的问题（正确性、安全、性能、可维护性），不要泛泛而谈。
 

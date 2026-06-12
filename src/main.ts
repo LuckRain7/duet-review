@@ -49,7 +49,7 @@ export async function main(options: MainOptions): Promise<number> {
     }
     throw e;
   }
-  log(`审查对象: ${diff.source} diff（${diff.patch.split('\n').length} 行，${diff.files.length} 个文件）`);
+  log(`审查对象: ${diff.label} diff（${diff.patch.split('\n').length} 行，${diff.files.length} 个文件）`);
   for (const line of renderFileTree(diff.files).split('\n')) log(`  ${line}`);
 
   const archive = new Archive(cwd);
@@ -77,7 +77,7 @@ export async function main(options: MainOptions): Promise<number> {
     spinner.start(reviewStatus());
     const initial = await runInitialReviews({
       codex, claude,
-      prompt: buildInitialReviewPrompt(diff.patch, diff.source),
+      prompt: buildInitialReviewPrompt(diff.patch, diff.label),
       onProgress: log,
       onOutput: (reviewer, raw) => archive.write(`01-${reviewer}-review.json`, raw),
       onReviewerDone: (reviewer) => {
@@ -90,7 +90,7 @@ export async function main(options: MainOptions): Promise<number> {
     const tracked = initTracked(initial.codexFindings, initial.claudeFindings);
     if (tracked.length === 0) {
       log('双方都没有发现问题 🎉');
-      archive.write('report.md', renderReport({ source: diff.source, rounds: 0, tracked, applySummary: null }));
+      archive.write('report.md', renderReport({ label: diff.label, rounds: 0, tracked, applySummary: null }));
       return 0;
     }
     log('');
@@ -124,7 +124,7 @@ export async function main(options: MainOptions): Promise<number> {
     spinner.stop();
 
     archive.write('consensus.json', JSON.stringify(tracked, null, 2));
-    archive.write('report.md', renderReport({ source: diff.source, rounds, tracked, applySummary }));
+    archive.write('report.md', renderReport({ label: diff.label, rounds, tracked, applySummary }));
 
     log('');
     log(`完成：共识 ${consensus.length} 条已应用，分歧 ${disputed.length} 条待人工裁决`);
