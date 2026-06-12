@@ -25,6 +25,13 @@ describe('runCli', () => {
     expect(res.timedOut).toBe(true);
   });
 
+  it('子进程不读 stdin 即退出时不崩溃（EPIPE 不致命）', async () => {
+    // 5MB 超过管道缓冲区，子进程立即退出会让 stdin 写入触发 EPIPE
+    const big = 'x'.repeat(5 * 1024 * 1024);
+    const res = await runCli('node', ['-e', 'process.exit(7)'], { stdin: big });
+    expect(res.code).toBe(7);
+  });
+
   it('命令不存在时 reject', async () => {
     await expect(runCli('definitely-not-a-cmd-xyz', [])).rejects.toThrow();
   });

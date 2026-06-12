@@ -38,6 +38,9 @@ export type DiscussionOutput = z.infer<typeof discussionOutputSchema>;
 
 export type ReviewerName = 'codex' | 'claude';
 
+/** finding id 前缀，双方各自命名空间防撞 id；initTracked 与讨论 prompt 共用 */
+export const REVIEWER_PREFIX: Record<ReviewerName, string> = { codex: 'cx', claude: 'cl' };
+
 /** 双方 reviewer 的统一接口；start 建立会话，reply 续接会话 */
 export interface Reviewer {
   readonly name: ReviewerName;

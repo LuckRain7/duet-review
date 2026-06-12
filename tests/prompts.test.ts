@@ -41,6 +41,16 @@ describe('buildDiscussionPrompt', () => {
     expect(p).toContain('缺少判空');
     for (const s of ['agree', 'disagree', 'modify', 'withdraw']) expect(p).toContain(s);
   });
+
+  it('告知评审者自己的身份与所属 id 前缀', () => {
+    const claudePrompt = buildDiscussionPrompt('claude', [tracked()], 1);
+    expect(claudePrompt).toContain('你是 claude');
+    expect(claudePrompt).toContain('cl-');
+
+    const codexPrompt = buildDiscussionPrompt('codex', [tracked()], 1);
+    expect(codexPrompt).toContain('你是 codex');
+    expect(codexPrompt).toContain('cx-');
+  });
 });
 
 describe('buildApplyPrompt', () => {

@@ -1,10 +1,10 @@
 import { parseDiscussionOutput, parseReviewOutput } from './parse.js';
 import { buildDiscussionPrompt, buildRetryPrompt } from './prompts.js';
-import type { DiscussionResponse, Finding, Reviewer, ReviewerName, TrackedFinding } from './types.js';
+import { REVIEWER_PREFIX, type DiscussionResponse, type Finding, type Reviewer, type ReviewerName, type TrackedFinding } from './types.js';
 
 export function initTracked(codexFindings: Finding[], claudeFindings: Finding[]): TrackedFinding[] {
-  const make = (f: Finding, author: ReviewerName, prefix: string): TrackedFinding => ({
-    finding: { ...f, id: `${prefix}-${f.id}` },
+  const make = (f: Finding, author: ReviewerName): TrackedFinding => ({
+    finding: { ...f, id: `${REVIEWER_PREFIX[author]}-${f.id}` },
     author,
     codexStance: author === 'codex' ? 'agree' : 'pending',
     claudeStance: author === 'claude' ? 'agree' : 'pending',
@@ -12,8 +12,8 @@ export function initTracked(codexFindings: Finding[], claudeFindings: Finding[])
     history: [],
   });
   return [
-    ...codexFindings.map((f) => make(f, 'codex', 'cx')),
-    ...claudeFindings.map((f) => make(f, 'claude', 'cl')),
+    ...codexFindings.map((f) => make(f, 'codex')),
+    ...claudeFindings.map((f) => make(f, 'claude')),
   ];
 }
 
@@ -48,6 +48,13 @@ export function applyResponses(
       stance = 'disagree';
     }
     if (stance === 'withdraw') { t.state = 'dropped'; continue; }
+    // 同轮双方并行回应：若对方本轮已修订此条目，本方的表态针对的是旧版本，
+    // 不计入立场（保持 pending），下轮对新版本重新表态；意见仍留在 history。
+    const revisedByOtherThisRound = t.history.some(
+      (h) => h.round === round && h.reviewer !== reviewer
+        && h.response.stance === 'modify' && h.response.revisedSuggestion,
+    );
+    if (revisedByOtherThisRound) continue;
     if (reviewer === 'codex') t.codexStance = stance;
     else t.claudeStance = stance;
   }

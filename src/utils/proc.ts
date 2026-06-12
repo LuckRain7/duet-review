@@ -68,6 +68,8 @@ export function runCli(cmd: string, args: string[], opts: RunOptions = {}): Prom
       resolve({ code, stdout, stderr, timedOut });
     });
 
+    // 子进程不读 stdin 就退出时写入会触发 EPIPE；失败原因由退出码路径报告，这里不让它成为 uncaught
+    child.stdin.on('error', () => {});
     child.stdin.end(opts.stdin ?? '');
   });
 }

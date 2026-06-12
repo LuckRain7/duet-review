@@ -1,4 +1,4 @@
-import type { ReviewerName, TrackedFinding } from './types.js';
+import { REVIEWER_PREFIX, type ReviewerName, type TrackedFinding } from './types.js';
 
 const FINDING_JSON_SPEC = `输出必须是一个 JSON 对象，且只输出 JSON，不要输出其他文字：
 {
@@ -54,8 +54,10 @@ function renderFinding(t: TrackedFinding): string {
   当前 suggestion: ${f.suggestion}${lastComments ? `\n  最新讨论:\n${lastComments}` : ''}`;
 }
 
-export function buildDiscussionPrompt(_me: ReviewerName, open: TrackedFinding[], round: number): string {
-  return `这是第 ${round} 轮讨论。下面是仍未达成共识的 findings（含双方最新意见）。
+export function buildDiscussionPrompt(me: ReviewerName, open: TrackedFinding[], round: number): string {
+  const myPrefix = `${REVIEWER_PREFIX[me]}-`;
+  return `你是 ${me}。id 以 ${myPrefix} 开头的条目是你提出的，其余是对方提出的。
+这是第 ${round} 轮讨论。下面是仍未达成共识的 findings（含双方最新意见）。
 请逐条表态：对方提出的条目你可以 agree / disagree / modify；你自己提出的条目，若被说服可以 withdraw，若想修订可以 modify，坚持则 agree。
 必须覆盖下列所有 findingId，不得遗漏。
 

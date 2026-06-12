@@ -73,6 +73,24 @@ describe('applyResponses + evaluate', () => {
     ]);
   });
 
+  it('同轮对方已 modify 时，本方对旧版本的表态不生效（防假共识）', () => {
+    const tracked = initTracked([finding('1')], []);
+    // 双方并行回应同一轮：codex 修订了 cx-1，claude 的 agree 针对的是旧版 s0
+    applyResponses(tracked, 'codex', [resp('cx-1', 'modify', { revisedSuggestion: 's_new' })], 1);
+    applyResponses(tracked, 'claude', [resp('cx-1', 'agree')], 1);
+    evaluate(tracked);
+
+    expect(tracked[0].finding.suggestion).toBe('s_new');
+    expect(tracked[0].claudeStance).toBe('pending'); // 需对新版本重新表态
+    expect(tracked[0].state).toBe('open');
+    expect(tracked[0].history).toHaveLength(2); // 陈旧意见仍留档
+
+    // 下一轮 claude 对新版本 agree 才形成共识
+    applyResponses(tracked, 'claude', [resp('cx-1', 'agree')], 2);
+    evaluate(tracked);
+    expect(tracked[0].state).toBe('consensus');
+  });
+
   it('双方同轮 modify 同一 finding 时 last-write-wins，先者 revision 留在 history', () => {
     const tracked = initTracked([finding('1')], []);
     applyResponses(tracked, 'codex', [resp('cx-1', 'modify', { revisedSuggestion: 's_codex' })], 1);

@@ -37,6 +37,7 @@ pnpm dev                         # tsx 直接运行 src/cli.ts
 - 双方都 `agree` → consensus
 - `withdraw` 仅作者本人有效，他人 withdraw 降级为 disagree
 - `modify` 带 revisedSuggestion → 更新 suggestion，修订者置 agree，**对方重置为 pending 需对新版本重新表态**；同轮双方都 modify 时 last-write-wins（claude 后应用）
+- 同轮对方已 modify 的条目，本方表态（针对的是旧版本）不计入立场，保持 pending 下轮重新表态，意见仍留 history——防止对旧版本的 agree 形成假共识
 - 达到 maxRounds 仍 open → disputed，不改代码，留给人工裁决
 
 ### 输出解析（src/parse.ts）
