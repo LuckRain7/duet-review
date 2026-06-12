@@ -15,6 +15,8 @@ export interface MainOptions {
   cwd: string;
   maxRounds: number;
   timeoutMs: number;
+  /** 基准 ref：给定时审查 <base>...HEAD 范围 */
+  base?: string;
   env?: NodeJS.ProcessEnv;
   log?: (message: string) => void;
 }
@@ -41,7 +43,7 @@ export async function main(options: MainOptions): Promise<number> {
 
   let diff;
   try {
-    diff = await collectDiff(cwd);
+    diff = await collectDiff(cwd, { base: options.base });
   } catch (e) {
     if (e instanceof NoDiffError) {
       log(e.message);

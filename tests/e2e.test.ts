@@ -113,6 +113,33 @@ describe('duet-review 端到端（假 CLI）', () => {
     expect(logs.some((l) => l.includes('分歧 2 条待人工裁决'))).toBe(true);
   });
 
+  it('--base 模式审查提交范围而非工作区', async () => {
+    const repo = makeTmpRepo();
+    repo.git('checkout', '-b', 'feature');
+    repo.write('a.txt', 'line1\nfeature-change\n');
+    repo.git('add', '.');
+    repo.git('commit', '-m', 'feature change');
+
+    const scenario = makeFakeScenario();
+    scenario.setReply('codex', 1, JSON.stringify({ findings: [] }));
+    scenario.setReply('claude', 1, JSON.stringify({ findings: [] }));
+
+    const logs: string[] = [];
+    const code = await main({
+      cwd: repo.dir, maxRounds: 3, timeoutMs: 30_000, base: 'main',
+      env: scenario.env, log: (m) => logs.push(m),
+    });
+
+    expect(code).toBe(0);
+    expect(logs.join('\n')).toContain('审查对象: main...HEAD diff');
+    // 评审 prompt 携带提交范围的 diff 与范围标签
+    expect(scenario.calls('codex')[0].stdin).toContain('+feature-change');
+    expect(scenario.calls('claude')[0].stdin).toContain('main...HEAD');
+    // 报告记录审查对象
+    const dir = join(repo.dir, '.duet-review', readdirSync(join(repo.dir, '.duet-review'))[0]);
+    expect(readFileSync(join(dir, 'report.md'), 'utf8')).toContain('审查对象: main...HEAD diff');
+  });
+
   it('codex/claude CLI 不可用时报可读错误', async () => {
     const repo = makeTmpRepo();
     const env = { ...process.env, PATH: '/nonexistent' };
