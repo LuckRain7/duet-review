@@ -1,46 +1,64 @@
 # duet-review
 
-codex × claude 双评审 CLI：并行调用两个编码代理审查你的 git diff，
-让它们多轮讨论收敛，最后由 claude 把达成共识的修改直接应用到工作区。
+English | [简体中文](README.zh-CN.md)
 
-## 前置条件
+A dual-agent code review CLI that pits **Codex** against **Claude Code**: both agents review your git diff in parallel, debate each other's findings over multiple rounds until they converge, and then Claude applies the agreed-upon fixes directly to your working tree.
+
+## How it works
+
+1. **Collect the diff** — staged changes take priority; falls back to unstaged if nothing is staged (untracked files are excluded).
+2. **Parallel initial review** — Codex (`codex exec`) and Claude Code (`claude -p`) each review the diff independently, both in read-only mode.
+3. **Multi-round discussion** — each agent responds to the other's findings with `agree` / `disagree` / `modify` / `withdraw`. Consensus is determined programmatically:
+   - both agree → **consensus**
+   - revised suggestion (`modify`) resets the other side to pending, so it must re-vote on the new version
+   - still open after the round limit → **disputed**, left for human judgment
+4. **Apply fixes** — Claude resumes its review session and applies consensus fixes to the working tree. Write permission is granted **only** in this phase; review and discussion run read-only throughout.
+5. **Report** — disputed findings are listed in the terminal without touching the code, and a full archive is written to disk.
+
+## Prerequisites
 
 - Node.js ≥ 20
-- 已安装并登录 [codex CLI](https://github.com/openai/codex) 与 [Claude Code](https://claude.com/claude-code)
+- [codex CLI](https://github.com/openai/codex) and [Claude Code](https://claude.com/claude-code) installed and logged in
 
-## 安装
+## Installation
 
 ```bash
 pnpm install && pnpm build && pnpm link --global
 ```
 
-## 使用
+## Usage
 
-在任意 git 仓库中（有 staged 变更时只审 staged，否则审 unstaged）：
+Run inside any git repository:
 
 ```bash
-duet-review                 # 默认最多 3 轮讨论，单次调用超时 10 分钟
+duet-review                          # defaults: up to 3 discussion rounds, 10-minute timeout per CLI call
 duet-review --max-rounds 5 --timeout 20
 ```
 
-## 工作流程
+| Option | Description | Default |
+| --- | --- | --- |
+| `--max-rounds <n>` | Maximum number of discussion rounds | `3` |
+| `--timeout <minutes>` | Timeout per CLI invocation, in minutes | `10` |
 
-1. 收集 diff（staged 优先）
-2. codex 与 claude 并行初始评审（均为只读模式）
-3. 多轮互评：对每条 finding 表态 agree / disagree / modify / withdraw，
-   程序化判定共识，全部收敛或达到轮数上限即停止
-4. claude 续接评审会话，把共识修改应用到工作区（仅此阶段有写权限）
-5. 分歧项不改代码，在终端列出供人工裁决
+> Note: terminal output (progress, reports, error messages) is currently in Chinese.
 
-## 产物
+## Artifacts
 
-每次运行在 `.duet-review/<时间戳>/` 留下完整记录：
-diff、双方每轮原始输出、共识状态（consensus.json）、人类可读报告（report.md）。
-建议把 `.duet-review/` 加入 `.gitignore`。
+Each run leaves a complete record under `.duet-review/<timestamp>/`:
 
-## 开发
+- `00-diff.patch` — the diff under review
+- `01-*-review.json` / `NN-*-round.json` — raw output from both agents, per round
+- `consensus.json` — final state of every finding
+- `report.md` — human-readable report
+
+Add `.duet-review/` to your `.gitignore` (the CLI reminds you if it's missing).
+
+## Development
 
 ```bash
-pnpm test          # 单元 + 集成测试（假 CLI，不耗 token）
-./scripts/smoke.sh # 真实 CLI 冒烟测试（消耗 token）
+pnpm test          # unit + integration tests (fake CLIs, no tokens consumed)
+pnpm dev           # run src/cli.ts directly via tsx
+./scripts/smoke.sh # smoke test against the real CLIs (consumes real tokens)
 ```
+
+Tests never call the real CLIs: fake `codex` / `claude` executables under `tests/fakes/bin/` are prepended to `PATH`, with replies pre-seeded per scenario.
