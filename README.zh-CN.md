@@ -33,12 +33,14 @@ pnpm install && pnpm build && pnpm link --global
 ```bash
 duet-review                          # 默认最多 3 轮讨论，单次 CLI 调用超时 10 分钟
 duet-review --max-rounds 5 --timeout 20
+duet-review --base origin/main         # 审查 origin/main...HEAD 提交范围（PR 场景）
 ```
 
 | 选项 | 说明 | 默认值 |
 | --- | --- | --- |
 | `--max-rounds <n>` | 讨论轮数上限 | `3` |
 | `--timeout <minutes>` | 单次 CLI 调用超时（分钟） | `10` |
+| `--base <ref>` | 审查 `<ref>...HEAD` 提交范围（merge-base 到 HEAD），给定时忽略 staged/unstaged | — |
 
 ## 产物
 

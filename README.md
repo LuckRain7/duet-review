@@ -33,12 +33,14 @@ Run inside any git repository:
 ```bash
 duet-review                          # defaults: up to 3 discussion rounds, 10-minute timeout per CLI call
 duet-review --max-rounds 5 --timeout 20
+duet-review --base origin/main         # review the commit range origin/main...HEAD (PR-style)
 ```
 
 | Option | Description | Default |
 | --- | --- | --- |
 | `--max-rounds <n>` | Maximum number of discussion rounds | `3` |
 | `--timeout <minutes>` | Timeout per CLI invocation, in minutes | `10` |
+| `--base <ref>` | Review the commit range `<ref>...HEAD` (merge-base to HEAD) instead of staged/unstaged changes | — |
 
 > Note: terminal output (progress, reports, error messages) is currently in Chinese.
 
