@@ -75,4 +75,44 @@ describe('collectDiff', () => {
     const repo = makeTmpRepo();
     await expect(collectDiff(repo.dir)).rejects.toBeInstanceOf(NoDiffError);
   });
+
+  it('--base 模式取 merge-base 到 HEAD 的范围，忽略工作区与基准分支后续提交', async () => {
+    const repo = makeTmpRepo();
+    repo.git('checkout', '-b', 'feature');
+    repo.write('a.txt', 'line1\nfeature-change\n');
+    repo.git('add', '.');
+    repo.git('commit', '-m', 'feature change');
+    repo.git('checkout', 'main');
+    repo.write('b.txt', 'main-only\n');
+    repo.git('add', '.');
+    repo.git('commit', '-m', 'main advance');
+    repo.git('checkout', 'feature');
+    repo.write('a.txt', 'line1\nfeature-change\nuncommitted\n'); // 未提交变更不应入范围
+
+    const res = await collectDiff(repo.dir, { base: 'main' });
+    expect(res.source).toBe('range');
+    expect(res.label).toBe('main...HEAD');
+    expect(res.patch).toContain('+feature-change');
+    expect(res.patch).not.toContain('main-only');
+    expect(res.patch).not.toContain('uncommitted');
+    expect(res.files).toEqual(['a.txt']);
+  });
+
+  it('--base 的 ref 不存在时抛中文错误', async () => {
+    const repo = makeTmpRepo();
+    await expect(collectDiff(repo.dir, { base: 'no-such-ref' })).rejects.toThrow('基准 ref 不存在: no-such-ref');
+  });
+
+  it('--base 范围为空时抛 NoDiffError 且文案含范围', async () => {
+    const repo = makeTmpRepo();
+    await expect(collectDiff(repo.dir, { base: 'main' })).rejects.toThrow(NoDiffError);
+    await expect(collectDiff(repo.dir, { base: 'main' })).rejects.toThrow('main...HEAD 范围内没有可审查的变更');
+  });
+
+  it('staged/unstaged 模式的结果带 label 字段', async () => {
+    const repo = makeTmpRepo();
+    repo.write('a.txt', 'line1\nline2\n');
+    const res = await collectDiff(repo.dir);
+    expect(res.label).toBe('unstaged');
+  });
 });
